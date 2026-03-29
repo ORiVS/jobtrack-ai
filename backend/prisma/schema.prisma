@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,4 +5,162 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum WorkMode {
+  REMOTE
+  HYBRID
+  ONSITE
+}
+
+enum ContractType {
+  CDI
+  CDD
+  STAGE
+  ALTERNANCE
+  FREELANCE
+  INTERNSHIP
+  OTHER
+}
+
+enum ApplicationStatus {
+  TO_ANALYZE
+  READY_TO_APPLY
+  APPLIED
+  FOLLOW_UP
+  HR_INTERVIEW
+  TECH_INTERVIEW
+  REJECTED
+  OFFER
+  ACCEPTED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ReminderStatus {
+  PENDING
+  DONE
+  CANCELLED
+}
+
+enum EventType {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  NOTE_ADDED
+  REMINDER_CREATED
+  REMINDER_DONE
+  AI_PARSED
+}
+
+model User {
+  id                 String           @id @default(cuid())
+  name               String
+  email              String           @unique
+  passwordHash       String
+  targetStack        String?
+  targetCity         String?
+  targetContractType ContractType?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  applications       JobApplication[]
+}
+
+model JobApplication {
+  id               String                 @id @default(cuid())
+  userId           String
+  company          String
+  title            String
+  location         String?
+  country          String?
+  workMode         WorkMode?
+  contractType     ContractType?
+  salaryMin        Int?
+  salaryMax        Int?
+  currency         String?
+  source           String?
+  sourceUrl        String?
+  rawOfferText     String?
+  summary          String?
+  experienceLevel  String?
+  yearsExperience  Int?
+  status           ApplicationStatus      @default(TO_ANALYZE)
+  priority         Priority               @default(MEDIUM)
+  appliedAt        DateTime?
+  followUpAt       DateTime?
+  nextAction       String?
+  notes            String?
+  personalRating   Int?
+  fitScore         Int?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  technologies     JobApplicationTechnology[]
+  reminders        Reminder[]
+  events           ApplicationEvent[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([company])
+  @@index([title])
+}
+
+model Technology {
+  id              String                    @id @default(cuid())
+  name            String                    @unique
+  createdAt       DateTime                  @default(now())
+
+  applications    JobApplicationTechnology[]
+}
+
+model JobApplicationTechnology {
+  id              String          @id @default(cuid())
+  applicationId   String
+  technologyId    String
+
+  application     JobApplication  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  technology      Technology      @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, technologyId])
+  @@index([applicationId])
+  @@index([technologyId])
+}
+
+model Reminder {
+  id              String          @id @default(cuid())
+  applicationId   String
+  title           String
+  dueDate         DateTime
+  status          ReminderStatus  @default(PENDING)
+  note            String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  application     JobApplication  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([dueDate])
+  @@index([status])
+}
+
+model ApplicationEvent {
+  id              String          @id @default(cuid())
+  applicationId   String
+  type            EventType
+  oldValue        String?
+  newValue        String?
+  note            String?
+  createdAt       DateTime        @default(now())
+
+  application     JobApplication  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([type])
+  @@index([createdAt])
 }
