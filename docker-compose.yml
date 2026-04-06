@@ -4,11 +4,12 @@ services:
     container_name: jobtracker_postgres
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: jobtracker_user
+      POSTGRES_PASSWORD: jobtracker_pass
       POSTGRES_DB: jobtracker_ai
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5433:5432"
+      - "55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
