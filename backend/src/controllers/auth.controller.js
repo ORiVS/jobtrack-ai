@@ -1,18 +1,17 @@
 const prisma = require("../config/prisma");
 const bcrypt = require("bcrypt");
+const generateToken = require("../utils/generateToken");
 
 const register = async (req, res) => {
   try {
     const { name, email, password, targetStack, targetCity, targetContractType } = req.body;
 
-    // 1. Vérification basique
     if (!name || !email || !password) {
       return res.status(400).json({
         message: "Name, email and password are required",
       });
     }
 
-    // 2. Vérifier si l'utilisateur existe déjà
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
@@ -23,10 +22,8 @@ const register = async (req, res) => {
       });
     }
 
-    // 3. Hash du mot de passe
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 4. Création utilisateur
     const user = await prisma.user.create({
       data: {
         name,
@@ -38,7 +35,6 @@ const register = async (req, res) => {
       },
     });
 
-    // 5. Réponse (sans mot de passe)
     return res.status(201).json({
       message: "User created successfully",
       user: {
@@ -50,7 +46,93 @@ const register = async (req, res) => {
         targetContractType: user.targetContractType,
       },
     });
+  } catch (error) {
+    console.error(error);
 
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    const token = generateToken(user);
+
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        targetStack: user.targetStack,
+        targetCity: user.targetCity,
+        targetContractType: user.targetContractType,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+const me = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        targetStack: true,
+        targetCity: true,
+        targetContractType: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      user,
+    });
   } catch (error) {
     console.error(error);
 
@@ -63,4 +145,6 @@ const register = async (req, res) => {
 
 module.exports = {
   register,
+  login,
+  me,
 };
