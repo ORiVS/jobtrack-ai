@@ -79,13 +79,70 @@ const createApplication = async (req, res) => {
 
 const getApplications = async (req, res) => {
   try {
+    const {
+      status,
+      priority,
+      company,
+      search,
+      sort = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    const where = {
+      userId: req.user.id,
+    };
+
+    // Filtres simples
+    if (status) {
+      where.status = status;
+    }
+
+    if (priority) {
+      where.priority = priority;
+    }
+
+    if (company) {
+      where.company = {
+        contains: company,
+        mode: "insensitive",
+      };
+    }
+
+    // Recherche globale
+    if (search) {
+      where.OR = [
+        {
+          company: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          title: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+      ];
+    }
+
+    // Sécurité sur les champs triables
+    const allowedSortFields = [
+      "createdAt",
+      "updatedAt",
+      "salaryMin",
+      "salaryMax",
+      "fitScore",
+      "personalRating",
+    ];
+
+    const orderBy = allowedSortFields.includes(sort)
+      ? { [sort]: order === "asc" ? "asc" : "desc" }
+      : { createdAt: "desc" };
+
     const applications = await prisma.jobApplication.findMany({
-      where: {
-        userId: req.user.id,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      where,
+      orderBy,
     });
 
     return res.status(200).json({
