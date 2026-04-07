@@ -1,4 +1,5 @@
 const prisma = require("../config/prisma");
+const { createApplicationEvent } = require("../utils/applicationEvent.service");
 
 const createApplication = async (req, res) => {
   try {
@@ -63,6 +64,12 @@ const createApplication = async (req, res) => {
       },
     });
 
+    await createApplicationEvent({
+      applicationId: application.id,
+      type: "CREATED",
+      note: `Application created for ${application.company} - ${application.title}`,
+    });
+
     return res.status(201).json({
       message: "Application created successfully",
       application,
@@ -72,7 +79,6 @@ const createApplication = async (req, res) => {
 
     return res.status(500).json({
       message: "Internal server error",
-      error: error.message,
     });
   }
 };
@@ -92,7 +98,6 @@ const getApplications = async (req, res) => {
       userId: req.user.id,
     };
 
-    // Filtres simples
     if (status) {
       where.status = status;
     }
@@ -108,7 +113,6 @@ const getApplications = async (req, res) => {
       };
     }
 
-    // Recherche globale
     if (search) {
       where.OR = [
         {
@@ -126,7 +130,6 @@ const getApplications = async (req, res) => {
       ];
     }
 
-    // Sécurité sur les champs triables
     const allowedSortFields = [
       "createdAt",
       "updatedAt",
@@ -154,7 +157,6 @@ const getApplications = async (req, res) => {
 
     return res.status(500).json({
       message: "Internal server error",
-      error: error.message,
     });
   }
 };
@@ -184,7 +186,6 @@ const getApplicationById = async (req, res) => {
 
     return res.status(500).json({
       message: "Internal server error",
-      error: error.message,
     });
   }
 };
@@ -255,6 +256,52 @@ const updateApplication = async (req, res) => {
       data: dataToUpdate,
     });
 
+    const eventsToCreate = [];
+
+    if (
+      req.body.status !== undefined &&
+      req.body.status !== existingApplication.status
+    ) {
+      eventsToCreate.push({
+        applicationId: id,
+        type: "STATUS_CHANGED",
+        oldValue: existingApplication.status,
+        newValue: req.body.status,
+        note: `Status changed from ${existingApplication.status} to ${req.body.status}`,
+      });
+    }
+
+    if (
+      req.body.notes !== undefined &&
+      req.body.notes !== existingApplication.notes
+    ) {
+      eventsToCreate.push({
+        applicationId: id,
+        type: "NOTE_ADDED",
+        oldValue: existingApplication.notes || null,
+        newValue: req.body.notes || null,
+        note: "Application notes were added or updated",
+      });
+    }
+
+    const hasOtherChanges = Object.keys(dataToUpdate).some(
+      (field) => field !== "status" && field !== "notes"
+    );
+
+    if (hasOtherChanges) {
+      eventsToCreate.push({
+        applicationId: id,
+        type: "UPDATED",
+        note: "Application updated",
+      });
+    }
+
+    if (eventsToCreate.length > 0) {
+      await prisma.applicationEvent.createMany({
+        data: eventsToCreate,
+      });
+    }
+
     return res.status(200).json({
       message: "Application updated successfully",
       application: updatedApplication,
@@ -264,7 +311,6 @@ const updateApplication = async (req, res) => {
 
     return res.status(500).json({
       message: "Internal server error",
-      error: error.message,
     });
   }
 };
@@ -300,7 +346,45 @@ const deleteApplication = async (req, res) => {
 
     return res.status(500).json({
       message: "Internal server error",
-      error: error.message,
+    });
+  }
+};
+
+const getApplicationEvents = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const application = await prisma.jobApplication.findFirst({
+      where: {
+        id,
+        userId: req.user.id,
+      },
+    });
+
+    if (!application) {
+      return res.status(404).json({
+        message: "Application not found",
+      });
+    }
+
+    const events = await prisma.applicationEvent.findMany({
+      where: {
+        applicationId: id,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return res.status(200).json({
+      count: events.length,
+      events,
+    });
+  } catch (error) {
+    console.error("Get application events error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error",
     });
   }
 };
@@ -311,4 +395,5 @@ module.exports = {
   getApplicationById,
   updateApplication,
   deleteApplication,
+  getApplicationEvents,
 };
