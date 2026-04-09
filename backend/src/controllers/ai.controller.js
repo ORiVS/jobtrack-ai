@@ -43,7 +43,7 @@ Ne mets jamais de balises markdown ou de blocs de code autour du JSON.`;
   "salaryMin": "salaire minimum en nombre entier (number ou null)",
   "salaryMax": "salaire maximum en nombre entier (number ou null)",
   "currency": "devise ex: EUR, USD (string ou null)",
-  "technologies": ["array de strings avec les technos requises"],
+  "technologies": ["array de strings avec toutes les compétences, outils et logiciels requis pour ce poste"],
   "experienceLevel": "Junior, Mid, Senior ou null",
   "summary": "résumé de l'offre en 2-3 phrases (string)",
   "fitScore": "score de compatibilité entre 0 et 100 basé sur le profil candidat (number)"

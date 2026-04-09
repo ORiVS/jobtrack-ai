@@ -143,8 +143,45 @@ const me = async (req, res) => {
   }
 };
 
+const updateMe = async (req, res) => {
+  try {
+    const { name, targetStack, targetCity, targetContractType } = req.body;
+
+    // On construit l'objet de mise à jour uniquement avec les champs fournis
+    // Si l'utilisateur n'envoie pas "name", on ne l'écrase pas avec undefined
+    const dataToUpdate = {};
+    if (name !== undefined) dataToUpdate.name = name;
+    if (targetStack !== undefined) dataToUpdate.targetStack = targetStack;
+    if (targetCity !== undefined) dataToUpdate.targetCity = targetCity;
+    if (targetContractType !== undefined) dataToUpdate.targetContractType = targetContractType;
+
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: dataToUpdate,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        targetStack: true,
+        targetCity: true,
+        targetContractType: true,
+        updatedAt: true,
+      },
+    });
+
+    return res.status(200).json({ user });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   me,
+  updateMe,
 };
